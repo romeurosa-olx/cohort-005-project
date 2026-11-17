@@ -18,6 +18,8 @@ import {
   fakeNotifications,
   type FakeNotifications,
 } from "./notifications.fake.server";
+import { isBookmarked, toggleBookmark } from "./bookmarks.server";
+import { getNote, saveNote } from "./notes.server";
 
 type TestDb = ReturnType<typeof createTestDb>;
 
@@ -297,6 +299,20 @@ describe("approving a Refund Request", () => {
       status: RefundStatus.Approved,
       amountRefunded: 7900,
       resolvedByUserId: platformAdmin.id,
+    });
+  });
+
+  it("keeps the buyer's Bookmarks and Notes", async () => {
+    const purchase = buyForSelf(base.user.id);
+    toggleBookmark(db, base.user.id, lessonIds[0], NOW);
+    saveNote(db, base.user.id, lessonIds[0], "come back to this", NOW);
+    const id = await raise(purchase.id, base.user.id);
+
+    await approveRefundRequest(db, id, platformAdmin.id, null, NOW, notifications);
+
+    expect(isBookmarked(db, base.user.id, lessonIds[0])).toBe(true);
+    expect(getNote(db, base.user.id, lessonIds[0])).toMatchObject({
+      body: "come back to this",
     });
   });
 
