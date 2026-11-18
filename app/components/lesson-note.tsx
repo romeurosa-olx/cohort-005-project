@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useFetcher } from "react-router";
 import { Lock, NotebookPen } from "lucide-react";
 import { Button } from "~/components/ui/button";
@@ -7,36 +7,39 @@ import { cn, formatRelativeTime } from "~/lib/utils";
 
 type SavedNote = { body: string; updatedAt: string };
 
-const HEADING_ID = "lesson-note-heading";
-
 /** A Student's private Note on a Lesson, saved with the button or Ctrl/⌘+Enter. */
 export function LessonNote({ note }: { note: SavedNote | null }) {
   const fetcher = useFetcher<{ ok: boolean; error?: string }>();
   const [text, setText] = useState(note?.body ?? "");
   const isSaving = fetcher.state !== "idle";
   const draft = describeNoteDraft(text, note?.body ?? "");
+  const headingId = useId();
 
   return (
     <section
-      aria-labelledby={HEADING_ID}
+      aria-labelledby={headingId}
       className="mb-8 overflow-hidden rounded-xl border bg-card shadow-sm transition-shadow focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/30"
     >
       <fetcher.Form method="post">
         <input type="hidden" name="intent" value="save-note" />
-        <NoteHeader status={statusLabel(draft, note, isSaving)} />
+        <NoteHeader
+          headingId={headingId}
+          status={statusLabel(draft, note, isSaving)}
+        />
         <textarea
           name="body"
-          aria-labelledby={HEADING_ID}
+          aria-labelledby={headingId}
           value={text}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
               event.preventDefault();
-              if (draft.canSave) event.currentTarget.form?.requestSubmit();
+              if (draft.canSave && !isSaving)
+                event.currentTarget.form?.requestSubmit();
             }
           }}
           placeholder="Jot down what you want to remember from this lesson…"
-          className="block field-sizing-content max-h-96 min-h-24 w-full resize-none bg-transparent px-4 py-3 text-sm leading-relaxed outline-none placeholder:text-muted-foreground"
+          className="block field-sizing-content max-h-96 min-h-24 w-full resize-y bg-transparent px-4 py-3 text-sm leading-relaxed outline-none placeholder:text-muted-foreground"
         />
         <NoteFooter
           draft={draft}
@@ -55,17 +58,24 @@ function statusLabel(
 ): string | null {
   if (isSaving) return "Saving…";
   if (draft.status === "unsaved") return "Unsaved changes";
+  if (draft.status === "blank") return "A note can't be blank";
   if (draft.status === "saved" && note)
     return `Saved ${formatRelativeTime(note.updatedAt)}`;
   return null;
 }
 
-function NoteHeader({ status }: { status: string | null }) {
+function NoteHeader({
+  headingId,
+  status,
+}: {
+  headingId: string;
+  status: string | null;
+}) {
   return (
     <header className="flex items-center justify-between gap-3 border-b px-4 py-2.5">
       <div className="flex items-center gap-2">
         <NotebookPen className="size-4 text-muted-foreground" />
-        <h2 id={HEADING_ID} className="text-sm font-semibold">
+        <h2 id={headingId} className="text-sm font-semibold">
           Your notes
         </h2>
         <span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -95,11 +105,7 @@ function NoteFooter({
 }) {
   return (
     <footer className="flex items-center justify-between gap-3 border-t bg-muted/40 px-4 py-2">
-      {error ? (
-        <span role="alert" className="text-xs text-red-600">
-          {error}
-        </span>
-      ) : (
+      <div className="flex min-w-0 items-center gap-3">
         <span
           className={cn(
             "text-xs tabular-nums text-muted-foreground",
@@ -109,10 +115,15 @@ function NoteFooter({
         >
           {draft.characterCount}
         </span>
-      )}
+        {error && (
+          <span role="alert" className="text-xs text-red-600">
+            {error}
+          </span>
+        )}
+      </div>
       <div className="flex items-center gap-3">
         <kbd className="hidden font-sans text-xs text-muted-foreground sm:inline">
-          Ctrl/⌘ + Enter
+          Ctrl/⌘ + Enter to save
         </kbd>
         <Button type="submit" size="sm" disabled={isSaving || !draft.canSave}>
           {isSaving ? "Saving…" : "Save"}

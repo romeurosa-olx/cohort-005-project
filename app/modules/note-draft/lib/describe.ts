@@ -1,6 +1,11 @@
 import { MAX_NOTE_LENGTH } from "~/lib/notes";
 
-export type NoteDraftStatus = "empty" | "saved" | "unsaved" | "too-long";
+export type NoteDraftStatus =
+  | "empty"
+  | "blank"
+  | "saved"
+  | "unsaved"
+  | "too-long";
 
 export type NoteDraft = {
   status: NoteDraftStatus;
@@ -20,16 +25,17 @@ export function describe(draft: string, savedBody: string): NoteDraft {
 
   return {
     status,
-    // The action rejects blank text, so clearing a note is not a save.
-    canSave: status === "unsaved" && body.length > 0,
+    canSave: status === "unsaved",
     characterCount: `${body.length.toLocaleString("en")} / ${MAX_NOTE_LENGTH.toLocaleString("en")}`,
     nearLimit: MAX_NOTE_LENGTH - body.length <= NEAR_LIMIT_MARGIN,
   };
 }
 
+// The action rejects blank text, so clearing a saved note is "blank", not a
+// change Save can store.
 function statusOf(body: string, savedBody: string): NoteDraftStatus {
   if (body.length > MAX_NOTE_LENGTH) return "too-long";
+  if (body === "") return savedBody === "" ? "empty" : "blank";
   if (body !== savedBody) return "unsaved";
-  if (savedBody === "") return "empty";
   return "saved";
 }

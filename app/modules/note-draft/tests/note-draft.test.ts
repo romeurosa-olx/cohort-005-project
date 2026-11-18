@@ -33,8 +33,12 @@ describe("describeNoteDraft", () => {
 
   it("does not offer Save for blank text, which the action rejects", () => {
     const draft = describeNoteDraft("   ", "Narrowing");
-    expect(draft.status).toBe("unsaved");
+    expect(draft.status).toBe("blank");
     expect(draft.canSave).toBe(false);
+  });
+
+  it("is empty, not blank, when whitespace is typed with no saved note", () => {
+    expect(describeNoteDraft("  \n", "").status).toBe("empty");
   });
 
   it("allows a note of exactly the maximum length", () => {
